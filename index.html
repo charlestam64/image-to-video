@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Image → Video (with proxy)</title>
+  <title>Image → 5s Video (CORS Anywhere)</title>
 </head>
 <body>
 
@@ -16,9 +16,9 @@ function getQueryParam(name) {
   return url.searchParams.get(name);
 }
 
-// 🔥 CHANGE THIS if proxy dies
+// 🔥 CORS Anywhere proxy
 function proxyUrl(url) {
-  return "https://proxy.cors.sh/" + url;
+  return "https://cors-anywhere.com/" + url;
 }
 
 const rawUrl = getQueryParam("img");
@@ -76,13 +76,14 @@ img.onload = () => {
 
   recorder.start();
 
+  // Record 5 seconds
   setTimeout(() => {
     recorder.stop();
   }, 5000);
 };
 
 img.onerror = () => {
-  alert("Image failed (proxy may be down or blocked)");
+  alert("Image failed to load. You may need to enable CORS Anywhere access.");
 };
 </script>
 
