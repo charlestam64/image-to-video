@@ -1,16 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Image → 5s Video</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image → Video</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  width: 100%;
+  max-width: 420px;
+  padding: 20px;
+}
+
+.card {
+  background: #1e293b;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+h1 {
+  font-size: 18px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  margin-bottom: 12px;
+  background: #0f172a;
+  color: white;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  background: #3b82f6;
+  color: white;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+button:hover {
+  background: #2563eb;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+video {
+  width: 100%;
+  margin-top: 16px;
+  border-radius: 12px;
+  background: black;
+}
+
+.loader {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.7;
+}
+</style>
 </head>
+
 <body>
 
-<input id="urlInput" type="text" placeholder="Enter image URL" style="width:300px;">
-<button id="startBtn">Generate Video</button>
+<div class="container">
+  <div class="card">
+    <h1>Image → 5s Video</h1>
 
-<br><br>
-<video id="video" controls loop></video>
+    <input id="urlInput" type="text" placeholder="Paste image URL...">
+    <button id="startBtn">Generate Video</button>
+
+    <div class="loader" id="status"></div>
+
+    <video id="video" controls loop></video>
+  </div>
+</div>
 
 <script>
 function proxyUrl(url) {
@@ -20,6 +108,7 @@ function proxyUrl(url) {
 const input = document.getElementById("urlInput");
 const button = document.getElementById("startBtn");
 const video = document.getElementById("video");
+const status = document.getElementById("status");
 
 button.onclick = async () => {
   const rawUrl = input.value.trim();
@@ -28,24 +117,26 @@ button.onclick = async () => {
     return;
   }
 
+  status.textContent = "Loading image...";
+
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.src = proxyUrl(rawUrl);
 
   img.onload = async () => {
+    status.textContent = "Processing video...";
+
     const maxSize = 1280;
 
     let width = img.naturalWidth;
     let height = img.naturalHeight;
 
-    // Keep ratio with max size
     if (width > maxSize || height > maxSize) {
       const scale = Math.min(maxSize / width, maxSize / height);
       width = Math.round(width * scale);
       height = Math.round(height * scale);
     }
 
-    // Hidden canvas (not added to DOM)
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -71,7 +162,6 @@ button.onclick = async () => {
     for (let i = 0; i < totalFrames; i++) {
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
-
       await new Promise(requestAnimationFrame);
     }
 
@@ -81,11 +171,13 @@ button.onclick = async () => {
       const blob = new Blob(chunks, { type: "video/webm" });
       const url = URL.createObjectURL(blob);
       video.src = url;
+      status.textContent = "Done ✅";
     };
   };
 
   img.onerror = () => {
-    alert("Failed to load image (proxy or CORS issue)");
+    status.textContent = "";
+    alert("Failed to load image (enable cors-anywhere)");
   };
 };
 </script>
