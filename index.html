@@ -2,89 +2,91 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Image → 5s Video (Max Size + Ratio)</title>
+  <title>Image → 5s Video</title>
 </head>
 <body>
 
-<canvas id="canvas"></canvas>
-<br>
+<input id="urlInput" type="text" placeholder="Enter image URL" style="width:300px;">
+<button id="startBtn">Generate Video</button>
+
+<br><br>
 <video id="video" controls loop></video>
 
 <script>
-function getQueryParam(name) {
-  const url = new URL(window.location.href);
-  return url.searchParams.get(name);
-}
-
 function proxyUrl(url) {
   return "https://cors-anywhere.com/" + url;
 }
 
-const rawUrl = getQueryParam("img");
-if (!rawUrl) {
-  alert("Use ?img=https://...");
-  throw new Error("Missing image URL");
-}
-
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+const input = document.getElementById("urlInput");
+const button = document.getElementById("startBtn");
 const video = document.getElementById("video");
 
-const img = new Image();
-img.crossOrigin = "anonymous";
-img.src = proxyUrl(rawUrl);
-
-img.onload = async () => {
-  const maxSize = 1280; // 🔥 change this if needed
-
-  let width = img.naturalWidth;
-  let height = img.naturalHeight;
-
-  // ✅ Scale while keeping aspect ratio
-  if (width > maxSize || height > maxSize) {
-    const scale = Math.min(maxSize / width, maxSize / height);
-    width = Math.round(width * scale);
-    height = Math.round(height * scale);
+button.onclick = async () => {
+  const rawUrl = input.value.trim();
+  if (!rawUrl) {
+    alert("Enter image URL");
+    return;
   }
 
-  canvas.width = width;
-  canvas.height = height;
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.src = proxyUrl(rawUrl);
 
-  const fps = 30;
-  const duration = 5;
-  const totalFrames = fps * duration;
+  img.onload = async () => {
+    const maxSize = 1280;
 
-  const stream = canvas.captureStream(fps);
-  const recorder = new MediaRecorder(stream, {
-    mimeType: "video/webm"
-  });
+    let width = img.naturalWidth;
+    let height = img.naturalHeight;
 
-  const chunks = [];
+    // Keep ratio with max size
+    if (width > maxSize || height > maxSize) {
+      const scale = Math.min(maxSize / width, maxSize / height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
 
-  recorder.ondataavailable = e => {
-    if (e.data.size > 0) chunks.push(e.data);
+    // Hidden canvas (not added to DOM)
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+
+    const fps = 30;
+    const duration = 5;
+    const totalFrames = fps * duration;
+
+    const stream = canvas.captureStream(fps);
+    const recorder = new MediaRecorder(stream, {
+      mimeType: "video/webm"
+    });
+
+    const chunks = [];
+
+    recorder.ondataavailable = e => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+
+    recorder.start();
+
+    for (let i = 0; i < totalFrames; i++) {
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      await new Promise(requestAnimationFrame);
+    }
+
+    recorder.stop();
+
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: "video/webm" });
+      const url = URL.createObjectURL(blob);
+      video.src = url;
+    };
   };
 
-  recorder.start();
-
-  for (let i = 0; i < totalFrames; i++) {
-    ctx.clearRect(0, 0, width, height);
-    ctx.drawImage(img, 0, 0, width, height);
-
-    await new Promise(r => setTimeout(r, 1000 / fps));
-  }
-
-  recorder.stop();
-
-  recorder.onstop = () => {
-    const blob = new Blob(chunks, { type: "video/webm" });
-    const url = URL.createObjectURL(blob);
-    video.src = url;
+  img.onerror = () => {
+    alert("Failed to load image (proxy or CORS issue)");
   };
-};
-
-img.onerror = () => {
-  alert("Image failed (enable cors-anywhere)");
 };
 </script>
 
