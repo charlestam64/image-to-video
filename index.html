@@ -1,114 +1,39 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Image → Video</title>
-
-<style>
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #0f172a;
-  color: #e2e8f0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
-
-.container {
-  width: 100%;
-  max-width: 420px;
-  padding: 20px;
-}
-
-.card {
-  background: #1e293b;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-}
-
-h1 {
-  font-size: 18px;
-  margin-bottom: 16px;
-  text-align: center;
-}
-
-input {
-  width: 100%;
-  padding: 12px;
-  border-radius: 10px;
-  border: none;
-  outline: none;
-  font-size: 14px;
-  margin-bottom: 12px;
-  background: #0f172a;
-  color: white;
-}
-
-button {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 600;
-  background: #3b82f6;
-  color: white;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-button:hover {
-  background: #2563eb;
-}
-
-button:active {
-  transform: scale(0.98);
-}
-
-video {
-  width: 100%;
-  margin-top: 16px;
-  border-radius: 12px;
-  background: black;
-}
-
-.loader {
-  margin-top: 12px;
-  text-align: center;
-  font-size: 13px;
-  opacity: 0.7;
-}
-</style>
-</head>
-
-<body>
-
-<div class="container">
-  <div class="card">
-    <h1>Image → 5s Video</h1>
-
-    <input id="urlInput" type="text" placeholder="Paste image URL...">
-    <button id="startBtn">Generate Video</button>
-
-    <div class="loader" id="status"></div>
-
-    <video id="video" controls loop></video>
-  </div>
-</div>
-
 <script>
 function proxyUrl(url) {
   return "https://cors-anywhere.com/" + url;
+}
+
+// 🔥 Get image URL from either ?img= or path
+function getImageUrl() {
+  const url = new URL(window.location.href);
+
+  // 1. Query param takes priority
+  const imgParam = url.searchParams.get("img");
+  if (imgParam) return imgParam;
+
+  // 2. Fallback: use pathname (remove leading "/")
+  let path = url.pathname.slice(1);
+
+  if (!path) return null;
+
+  // Decode URL (important!)
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
 }
 
 const input = document.getElementById("urlInput");
 const button = document.getElementById("startBtn");
 const video = document.getElementById("video");
 const status = document.getElementById("status");
+
+// 🔥 Auto-fill input if URL detected
+const initialUrl = getImageUrl();
+if (initialUrl) {
+  input.value = initialUrl;
+}
 
 button.onclick = async () => {
   const rawUrl = input.value.trim();
@@ -181,6 +106,3 @@ button.onclick = async () => {
   };
 };
 </script>
-
-</body>
-</html>
