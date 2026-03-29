@@ -103,7 +103,7 @@ video {
 <script>
 // 🔥 CORS proxy
 function proxyUrl(url) {
-  return "https://cors.excuse.workers.dev/?url=" + url;
+  return "https://cors.excuse.workers.dev/?url=" + encodeURIComponent(url);
 }
 
 // 🔥 Get image URL from query OR path
