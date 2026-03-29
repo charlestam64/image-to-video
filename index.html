@@ -56,15 +56,10 @@ button {
   background: #3b82f6;
   color: white;
   cursor: pointer;
-  transition: 0.2s;
 }
 
 button:hover {
   background: #2563eb;
-}
-
-button:active {
-  transform: scale(0.98);
 }
 
 video {
@@ -78,7 +73,7 @@ video {
   margin-top: 12px;
   text-align: center;
   font-size: 13px;
-  opacity: 0.7;
+  opacity: 0.8;
 }
 </style>
 </head>
@@ -99,33 +94,35 @@ video {
 </div>
 
 <script>
-// 🔥 CORS proxy
+window.onerror = function (msg, url, line, col, error) {
+  console.error("Global Error:", msg, url, line, col, error);
+  status.textContent = "❌ Error: " + msg;
+};
+
+window.onunhandledrejection = function (event) {
+  console.error("Promise Error:", event.reason);
+  status.textContent = "❌ Promise Error";
+};
+
 function proxyUrl(url) {
   return "https://cors.excuse.workers.dev/?url=" + encodeURIComponent(url);
 }
 
-// 🔥 Get image URL from query OR path
 function getImageUrl() {
   const url = new URL(window.location.href);
 
-  // 1. ?img=
   const imgParam = url.searchParams.get("img");
   if (imgParam) return imgParam;
 
-  // 2. Path fallback
   let path = url.pathname.slice(1);
   if (!path) return null;
 
-  try {
-    path = decodeURIComponent(path);
-  } catch {}
+  try { path = decodeURIComponent(path); } catch {}
 
-  // If already full URL
   if (path.startsWith("http://") || path.startsWith("https://")) {
     return path;
   }
 
-  // Otherwise assume https
   return "https://" + path;
 }
 
@@ -134,17 +131,12 @@ const button = document.getElementById("startBtn");
 const video = document.getElementById("video");
 const status = document.getElementById("status");
 
-// Auto-fill from URL
 const initialUrl = getImageUrl();
-if (initialUrl) {
-  input.value = initialUrl;
-}
-
-// Optional auto-start
-// if (initialUrl) button.click();
+if (initialUrl) input.value = initialUrl;
 
 button.onclick = async () => {
   const rawUrl = input.value.trim();
+
   if (!rawUrl) {
     alert("Enter image URL");
     return;
@@ -156,62 +148,87 @@ button.onclick = async () => {
   img.crossOrigin = "anonymous";
   img.src = proxyUrl(rawUrl);
 
-  img.onload = async () => {
-    status.textContent = "Processing video...";
-
-    const maxSize = 1280;
-
-    let width = img.naturalWidth;
-    let height = img.naturalHeight;
-
-    // Keep ratio with max size
-    if (width > maxSize || height > maxSize) {
-      const scale = Math.min(maxSize / width, maxSize / height);
-      width = Math.round(width * scale);
-      height = Math.round(height * scale);
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-
-    const fps = 30;
-    const duration = 5;
-    const totalFrames = fps * duration;
-
-    const stream = canvas.captureStream(fps);
-    const recorder = new MediaRecorder(stream, {
-      mimeType: "video/webm"
-    });
-
-    const chunks = [];
-
-    recorder.ondataavailable = e => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
-
-    recorder.start();
-
-    for (let i = 0; i < totalFrames; i++) {
-      ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-      await new Promise(requestAnimationFrame);
-    }
-
-    recorder.stop();
-
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: "video/webm" });
-      const url = URL.createObjectURL(blob);
-      video.src = url;
-      status.textContent = "Done ✅";
-    };
+  img.onerror = (e) => {
+    console.error("Image load failed:", rawUrl, e);
+    status.textContent = "❌ Image failed";
+    alert("Failed to load image:\n" + rawUrl);
   };
 
-  img.onerror = () => {
-    status.textContent = "";
-    alert("Failed to load image.\nEnable CORS Anywhere or try another image.");
+  img.onload = async () => {
+    try {
+      status.textContent = "Processing video...";
+
+      const maxSize = 1280;
+      let width = img.naturalWidth;
+      let height = img.naturalHeight;
+
+      if (width > maxSize || height > maxSize) {
+        const scale = Math.min(maxSize / width, maxSize / height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas not supported");
+
+      const fps = 30;
+      const duration = 5;
+      const totalFrames = fps * duration;
+
+      if (!window.MediaRecorder) {
+        throw new Error("MediaRecorder not supported");
+      }
+
+      const stream = canvas.captureStream(fps);
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType: "video/webm"
+      });
+
+      const chunks = [];
+
+      recorder.ondataavailable = e => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onerror = e => {
+        console.error("Recorder error:", e);
+        status.textContent = "❌ Recorder failed";
+      };
+
+      recorder.start();
+
+      for (let i = 0; i < totalFrames; i++) {
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        await new Promise(requestAnimationFrame);
+      }
+
+      recorder.stop();
+
+      recorder.onstop = () => {
+        try {
+          if (!chunks.length) throw new Error("No video data");
+
+          const blob = new Blob(chunks, { type: "video/webm" });
+          const url = URL.createObjectURL(blob);
+
+          video.src = url;
+          status.textContent = "✅ Done";
+        } catch (err) {
+          console.error("Final error:", err);
+          status.textContent = "❌ Failed to create video";
+        }
+      };
+
+    } catch (err) {
+      console.error("Processing error:", err);
+      status.textContent = "❌ " + err.message;
+    }
   };
 };
 </script>
